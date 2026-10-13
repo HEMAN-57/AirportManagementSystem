@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Flight Details - AMS Radar</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <a href="dashboard.html" class="nav-btn" style="padding-left: 0; font-size: 15px;">&larr; Back to Flight Board</a>
+        <span style="color: var(--border-color);">|</span>
+        <div class="brand-icon" style="width: 32px; height: 32px; font-size: 16px;">✈️</div>
+        <div>
+          <h2 class="brand-title" id="page-flight-no">Loading...</h2>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <a href="dashboard.html" class="nav-btn">🛫 Flight Board</a>
+        <a href="mybookings.html" class="nav-btn">🎟️ My Bookings</a>
+        <a href="baggage.html" class="nav-btn">🧳 Baggage Tracker</a>
+        <button onclick="logout()" class="btn-secondary" style="padding: 7px 12px; font-size: 13px;">Logout</button>
+      </nav>
+    </header>
+
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+
+    <!-- Flight Hero Banner -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(2, 132, 199, 0.15), rgba(17, 25, 46, 0.8)); border-color: rgba(2, 132, 199, 0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px;">
+        <div>
+          <span style="font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #38bdf8;" id="banner-airline">Air India</span>
+          <h1 style="font-size: 32px; margin-top: 4px; display: flex; align-items: center; gap: 12px;" id="banner-route">
+            BOM <span style="font-size: 20px; color: var(--text-dim);">➔</span> LHR
+          </h1>
+          <p style="font-size: 14px; color: var(--text-muted); margin-top: 4px;" id="banner-airports">
+            Mumbai Chhatrapati Shivaji ➔ London Heathrow
+          </p>
+        </div>
+
+        <div style="text-align: right;">
+          <div style="margin-bottom: 8px;">
+            <span class="badge badge-scheduled" id="banner-status-badge" style="font-size: 13px; padding: 6px 14px;">
+              <span class="badge-dot"></span>
+              <span id="banner-status-text">SCHEDULED</span>
+            </span>
+          </div>
+          <div style="font-size: 13px; color: var(--text-muted);" id="banner-runway">Assigned Runway: 27R</div>
+          <button id="btn-hero-book" class="btn-success" style="margin-top: 10px; padding: 8px 16px;">Book Seat on this Flight</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Details Grid -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px;">
+      <!-- Schedule Telemetry Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">⏱️ Schedule & Timing Telemetry</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px; font-size: 14px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Scheduled Departure:</span>
+            <strong id="detail-sch-dep">--:--</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Estimated Departure:</span>
+            <strong id="detail-est-dep" style="color: #38bdf8;">--:--</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Scheduled Arrival:</span>
+            <strong id="detail-sch-arr">--:--</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Estimated Arrival:</span>
+            <strong id="detail-est-arr" style="color: #38bdf8;">--:--</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Operational Delay:</span>
+            <strong id="detail-delay">0 Minutes</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Base Economy Fare:</span>
+            <strong id="detail-base-fare" style="color: #34d399;">₹5,000</strong>
+          </div>
+        </div>
+      </div>
+
+      <!-- Aircraft & Gate Info Card -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">✈️ Aircraft & Terminal Gate</div>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 14px; font-size: 14px;">
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Tail Registration:</span>
+            <strong id="detail-aircraft-tail">VT-ALO</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Aircraft Model:</span>
+            <strong id="detail-aircraft-model">Boeing 777-300ER</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Passenger Capacity:</span>
+            <strong id="detail-aircraft-seats">342 Seats</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Occupancy / Available:</span>
+            <strong id="detail-seats-avail" style="color: #38bdf8;">300 Seats Left</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Terminal & Gate:</span>
+            <strong id="detail-gate-number">T2 / Gate 41</strong>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span style="color: var(--text-muted);">Gate Classification:</span>
+            <strong id="detail-gate-status">OCCUPIED</strong>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Crew Roster & Manifest Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 20px; margin-top: 20px;">
+      <!-- Flight Crew Roster -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">👨‍✈️ Flight Operations Crew Roster</div>
+        </div>
+        <div id="crew-list">
+          <p style="color: var(--text-muted); font-size: 13px;">Loading crew roster...</p>
+        </div>
+      </div>
+
+      <!-- Passenger Manifest Summary -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Booked Passenger Manifest</div>
+        </div>
+        <div id="passenger-manifest-list">
+          <p style="color: var(--text-muted); font-size: 13px;">Loading manifest...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    checkAuth();
+    const urlParams = new URLSearchParams(window.location.search);
+    const logId = urlParams.get('id');
+
+    if (!logId) {
+      window.location.href = 'dashboard.html';
+    }
+
+    async function loadFlightDetails() {
+      try {
+        const f = await apiCall(`/flights/${logId}`);
+
+        document.getElementById('page-flight-no').textContent = `Flight ${f.flight_number} Manifest`;
+        document.getElementById('banner-airline').textContent = `${f.airline_name} (${f.airline_iata})`;
+        document.getElementById('banner-route').innerHTML = `${f.origin_iata} <span style="font-size: 20px; color: var(--text-dim);">➔</span> ${f.dest_iata}`;
+        document.getElementById('banner-airports').textContent = `${f.origin_airport_name} ➔ ${f.dest_airport_name}`;
+
+        // Status badge
+        const badge = document.getElementById('banner-status-badge');
+        document.getElementById('banner-status-text').textContent = f.flight_status;
+        badge.className = 'badge';
+        if (f.flight_status === 'BOARDING') badge.classList.add('badge-boarding');
+        else if (f.flight_status === 'AIRBORNE' || f.flight_status === 'DEPARTED') badge.classList.add('badge-airborne');
+        else if (f.flight_status === 'LANDED') badge.classList.add('badge-landed');
+        else if (f.flight_status === 'CANCELLED') badge.classList.add('badge-delayed');
+        else badge.classList.add('badge-scheduled');
+
+        document.getElementById('banner-runway').textContent = `Assigned Runway: ${f.runway_id || '27R'}`;
+
+        // Telemetry
+        document.getElementById('detail-sch-dep').textContent = f.scheduled_departure ? f.scheduled_departure.substring(0, 5) : '--:--';
+        document.getElementById('detail-est-dep').textContent = formatTime(f.estimated_departure);
+        document.getElementById('detail-sch-arr').textContent = f.scheduled_arrival ? f.scheduled_arrival.substring(0, 5) : '--:--';
+        document.getElementById('detail-est-arr').textContent = formatTime(f.estimated_arrival);
+        document.getElementById('detail-delay').textContent = f.delay_minutes > 0 ? `${f.delay_minutes} Minutes (${f.delay_reason || 'Delayed'})` : 'On Schedule (0 Min)';
+        document.getElementById('detail-base-fare').textContent = formatINR(f.base_price);
+
+        // Aircraft & Gate
+        document.getElementById('detail-aircraft-tail').textContent = f.tail_number || 'N/A';
+        document.getElementById('detail-aircraft-model').textContent = f.aircraft_model || 'N/A';
+        document.getElementById('detail-aircraft-seats').textContent = `${f.total_seats || 180} Seats Capacity`;
+        document.getElementById('detail-seats-avail').textContent = `${f.seats_available} Seats Available (${f.seats_occupied} Booked)`;
+        document.getElementById('detail-gate-number').textContent = f.gate_number ? `${f.terminal_code} / ${f.gate_number}` : 'TBD';
+        document.getElementById('detail-gate-status').textContent = f.gate_status || 'AVAILABLE';
+
+        // Crew
+        const crewList = document.getElementById('crew-list');
+        crewList.innerHTML = '';
+        if (!f.crew || f.crew.length === 0) {
+          crewList.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">No crew roster assigned yet.</p>';
+        } else {
+          f.crew.forEach(c => {
+            const div = document.createElement('div');
+            div.style.padding = '10px 0';
+            div.style.borderBottom = '1px solid var(--border-color)';
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+            div.innerHTML = `
+              <div>
+                <strong>${c.first_name} ${c.last_name}</strong>
+                <div style="font-size:12px; color:var(--text-dim);">${c.employee_code}</div>
+              </div>
+              <span class="role-pill role-staff">${c.staff_role}</span>
+            `;
+            crewList.appendChild(div);
+          });
+        }
+
+        // Passengers
+        const passList = document.getElementById('passenger-manifest-list');
+        passList.innerHTML = '';
+        if (!f.passengers || f.passengers.length === 0) {
+          passList.innerHTML = '<p style="color:var(--text-muted); font-size:13px;">No passenger bookings registered yet.</p>';
+        } else {
+          f.passengers.forEach(p => {
+            const div = document.createElement('div');
+            div.style.padding = '10px 0';
+            div.style.borderBottom = '1px solid var(--border-color)';
+            div.style.display = 'flex';
+            div.style.justifyContent = 'space-between';
+            div.style.alignItems = 'center';
+            div.innerHTML = `
+              <div>
+                <strong>${p.first_name} ${p.last_name}</strong>
+                <div style="font-size:12px; color:var(--text-dim);">Fare: ${p.fare_class}</div>
+              </div>
+              <div style="text-align:right;">
+                <span style="font-weight:700; color:#38bdf8;">Seat ${p.seat_number}</span>
+                <div style="font-size:11px; color:var(--text-dim);">${p.boarding_status || 'CONFIRMED'}</div>
+              </div>
+            `;
+            passList.appendChild(div);
+          });
+        }
+
+        document.getElementById('btn-hero-book').onclick = () => {
+          window.location.href = `dashboard.html`;
+        };
+
+      } catch (err) {
+        showError('Error loading flight details: ' + err.message);
+      }
+    }
+
+    loadFlightDetails();
+  </script>
+</body>
+</html>

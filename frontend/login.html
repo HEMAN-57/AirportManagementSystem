@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Airport Management System</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="auth-container">
+    <div style="text-align: center; margin-bottom: 24px;">
+      <div class="brand-icon" style="margin: 0 auto 12px; width: 48px; height: 48px; font-size: 24px;">✈️</div>
+      <h2 class="brand-title">AMS Aviation Portal</h2>
+      <p class="brand-sub">Airport Management & Flight Operations System</p>
+    </div>
+
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+    <div id="success-msg" class="success-msg" style="display:none;"></div>
+
+    <form id="login-form">
+      <div class="form-group">
+        <label for="email">Work / Passenger Email</label>
+        <input type="email" id="email" placeholder="name@ams.com" required autocomplete="email">
+      </div>
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <button type="submit" id="login-submit-btn" style="width: 100%;">Sign In</button>
+    </form>
+
+    <div class="demo-box">
+      <div class="demo-box-title">⚡ 1-Click Quick Demo Access</div>
+      <div class="demo-btn-group">
+        <button type="button" class="demo-btn" onclick="fillAndLogin('passenger@ams.com', 'password123')">
+          <strong>✈️ Demo Passenger</strong> (Rahul Sharma)
+        </button>
+        <button type="button" class="demo-btn" onclick="fillAndLogin('staff@ams.com', 'password123')">
+          <strong>🛂 Airport Ops Staff</strong> (Priya Nair)
+        </button>
+      </div>
+    </div>
+
+    <p style="margin-top: 24px; text-align: center; font-size: 13px; color: var(--text-muted);">
+      Don't have an account? <a href="register.html">Register as New Passenger / Staff</a>
+    </p>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    checkAuth();
+
+    async function fillAndLogin(email, password) {
+      document.getElementById('email').value = email;
+      document.getElementById('password').value = password;
+      submitLogin(email, password);
+    }
+
+    async function submitLogin(email, password) {
+      clearError();
+      const btn = document.getElementById('login-submit-btn');
+      btn.textContent = 'Authenticating...';
+      btn.disabled = true;
+
+      try {
+        const data = await apiCall('/auth/login', 'POST', { email, password });
+        localStorage.setItem('ams_token', data.token);
+        localStorage.setItem('ams_user', JSON.stringify(data.user));
+        window.location.href = 'dashboard.html';
+      } catch (err) {
+        showError(err.message || 'Login failed');
+        btn.textContent = 'Sign In';
+        btn.disabled = false;
+      }
+    }
+
+    document.getElementById('login-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      submitLogin(email, password);
+    });
+  </script>
+</body>
+</html>

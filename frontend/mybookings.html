@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>My Bookings & Boarding Passes - AMS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">✈️</div>
+        <div>
+          <h1 class="brand-title">Passenger Travel Portal</h1>
+          <p class="brand-sub">Bookings, Digital Boarding Passes & Baggage Drop</p>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <a href="dashboard.html" class="nav-btn">🛫 Flight Board</a>
+        <a href="mybookings.html" class="nav-btn active">🎟️ My Bookings</a>
+        <a href="baggage.html" class="nav-btn">🧳 Baggage Tracker</a>
+        <a href="database.html" class="nav-btn">🗄️ Database</a>
+        <button onclick="logout()" class="btn-secondary" style="padding: 7px 12px; font-size: 13px;">Logout</button>
+      </nav>
+    </header>
+
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+    <div id="success-msg" class="success-msg" style="display:none;"></div>
+
+    <div class="card">
+      <div class="card-header">
+        <div class="card-title">
+          <span>🎫 My Confirmed Flight Bookings</span>
+        </div>
+        <button onclick="window.location.href='dashboard.html'" class="btn" style="padding: 6px 14px; font-size: 13px;">+ Book Another Flight</button>
+      </div>
+
+      <div id="bookings-container">
+        <p style="color: var(--text-muted); padding: 20px; text-align: center;">Loading your flight bookings...</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Digital Boarding Pass Modal -->
+  <div id="boarding-pass-modal" class="modal-overlay">
+    <div class="modal-content" style="max-width: 650px; background: #0f172a; padding: 24px;">
+      <div class="modal-header" style="border-bottom:none; margin-bottom: 0;">
+        <h3 class="card-title" style="color: #fff;">✈️ Official Digital Boarding Pass</h3>
+        <button class="modal-close" onclick="closeModal('boarding-pass-modal')">&times;</button>
+      </div>
+
+      <div id="boarding-pass-render" class="boarding-pass-card">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div style="margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px;">
+        <button class="btn-secondary" onclick="window.print()">🖨️ Print Pass</button>
+        <button class="btn" onclick="closeModal('boarding-pass-modal')">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Baggage Check-In Modal -->
+  <div id="baggage-modal" class="modal-overlay">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h3 class="card-title">🧳 Baggage Check-In & Tag Issuance</h3>
+        <button class="modal-close" onclick="closeModal('baggage-modal')">&times;</button>
+      </div>
+      <form id="baggage-form">
+        <input type="hidden" id="bag-ticket-id">
+
+        <div style="background: var(--bg-input); padding: 14px; border-radius: var(--radius-sm); border: 1px solid var(--border-color); margin-bottom: 16px;">
+          <div style="font-size: 15px; font-weight: 700; color: #38bdf8;" id="bag-pnr-info">PNR: AMS8X1</div>
+          <div style="font-size: 13px; color: var(--text-muted);" id="bag-flight-info">Flight AI-678 | Seat 12A</div>
+        </div>
+
+        <div class="form-group">
+          <label for="bag-weight">Luggage Weight (in kg)</label>
+          <input type="number" id="bag-weight" step="0.1" min="1" max="50" placeholder="e.g. 18.5" required oninput="calcExcessFee()">
+        </div>
+
+        <div class="form-group">
+          <label for="bag-allowed">Allowed Free Weight Allowance</label>
+          <input type="number" id="bag-allowed" value="15.0" readonly style="color: var(--text-muted);">
+        </div>
+
+        <div style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: var(--radius-sm); padding: 12px; margin-bottom: 16px;">
+          <div style="font-size: 12px; color: #fbbf24; font-weight: 600;">Automated Tariff Calculation (Trigger Enforced):</div>
+          <div style="font-size: 14px; margin-top: 4px;" id="bag-excess-fee-text">Excess Fee: ₹0.00</div>
+          <div style="font-size: 11px; color: var(--text-muted);">Rate: ₹500.00 per kg over 15.0 kg allowance</div>
+        </div>
+
+        <button type="submit" class="btn-success" style="width: 100%;">Generate Bag Tag & Check In Luggage</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    checkAuth();
+    let currentBookings = [];
+
+    async function loadBookings() {
+      try {
+        currentBookings = await apiCall('/bookings/my');
+        const container = document.getElementById('bookings-container');
+        container.innerHTML = '';
+
+        if (currentBookings.length === 0) {
+          container.innerHTML = `
+            <div style="text-align: center; padding: 40px 20px;">
+              <div style="font-size: 36px; margin-bottom: 10px;">🎟️</div>
+              <h3 style="margin-bottom: 6px;">No Bookings Found</h3>
+              <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 16px;">You don't have any flight reservations yet.</p>
+              <button onclick="window.location.href='dashboard.html'" class="btn">Explore Flight Schedule</button>
+            </div>
+          `;
+          return;
+        }
+
+        currentBookings.forEach(b => {
+          const div = document.createElement('div');
+          div.style.background = 'var(--bg-secondary)';
+          div.style.border = '1px solid var(--border-color)';
+          div.style.borderRadius = 'var(--radius-md)';
+          div.style.padding = '20px';
+          div.style.marginBottom = '16px';
+
+          const estDep = formatTime(b.estimated_departure);
+          const flightDate = formatDate(b.flight_date);
+          const isCheckedIn = !!b.boarding_pass_id;
+
+          div.innerHTML = `
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 12px; border-bottom: 1px solid var(--border-color); padding-bottom: 14px; margin-bottom: 14px;">
+              <div>
+                <div style="display:flex; align-items:center; gap:8px;">
+                  <span style="font-size: 18px; font-weight: 700; color: #fff;">${b.flight_number}</span>
+                  <span style="font-size: 13px; color: var(--text-muted);">(${b.airline_name})</span>
+                  <span class="role-pill role-passenger">PNR: ${b.pnr}</span>
+                </div>
+                <div style="font-size: 12px; color: var(--text-dim); margin-top: 4px;">Ticket # ${b.ticket_number} | Class: ${b.fare_class}</div>
+              </div>
+
+              <div style="text-align: right;">
+                <span style="font-size: 14px; font-weight: 700; color: #34d399;">₹${parseFloat(b.base_fare).toLocaleString('en-IN')}</span>
+                <div style="font-size: 11px; color: var(--text-muted);">Status: ${b.payment_status}</div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 16px; margin-bottom: 16px;">
+              <div style="display: flex; align-items: center; gap: 16px;">
+                <div>
+                  <div style="font-size: 20px; font-weight: 800; color: #38bdf8;">${b.origin_iata}</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">${b.origin_city}</div>
+                </div>
+                <div style="color: var(--text-dim); font-size: 18px;">✈️</div>
+                <div>
+                  <div style="font-size: 20px; font-weight: 800; color: #38bdf8;">${b.dest_iata}</div>
+                  <div style="font-size: 12px; color: var(--text-muted);">${b.dest_city}</div>
+                </div>
+              </div>
+
+              <div style="display: flex; gap: 24px; font-size: 13px;">
+                <div>
+                  <div style="color: var(--text-muted);">Departure</div>
+                  <strong>${flightDate} at ${estDep}</strong>
+                </div>
+                <div>
+                  <div style="color: var(--text-muted);">Seat</div>
+                  <strong style="color: #38bdf8;">${b.seat_number}</strong>
+                </div>
+                <div>
+                  <div style="color: var(--text-muted);">Terminal / Gate</div>
+                  <strong>${b.gate_number ? `${b.terminal_code} - ${b.gate_number}` : 'TBD'}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style="display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap;">
+              <button class="btn-secondary" style="padding: 7px 14px; font-size: 13px;" onclick="openBaggageModal(${b.ticket_id}, '${b.pnr}', '${b.flight_number}', '${b.seat_number}')">
+                🧳 Add Checked Baggage
+              </button>
+
+              ${isCheckedIn ? `
+                <button class="btn-success" style="padding: 7px 14px; font-size: 13px;" onclick="viewBoardingPass(${b.ticket_id})">
+                  🎟️ View Boarding Pass
+                </button>
+              ` : `
+                <button class="btn" style="padding: 7px 14px; font-size: 13px;" onclick="doCheckin(${b.ticket_id})">
+                  ⚡ Web Check-In Now
+                </button>
+              `}
+
+              <button class="btn-danger" style="padding: 7px 12px; font-size: 13px;" onclick="cancelBooking(${b.ticket_id})">
+                Cancel
+              </button>
+            </div>
+          `;
+
+          container.appendChild(div);
+        });
+
+      } catch (err) {
+        showError('Failed to load bookings: ' + err.message);
+      }
+    }
+
+    async function doCheckin(ticketId) {
+      clearError();
+      try {
+        const res = await apiCall(`/bookings/${ticketId}/checkin`, 'POST');
+        showSuccess(res.message);
+        await loadBookings();
+        viewBoardingPass(ticketId);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    async function viewBoardingPass(ticketId) {
+      try {
+        const bp = await apiCall(`/bookings/${ticketId}/boarding-pass`);
+        const render = document.getElementById('boarding-pass-render');
+
+        render.innerHTML = `
+          <div class="bp-header">
+            <div>
+              <div class="bp-airline">${bp.airline_name}</div>
+              <div style="font-size: 11px; opacity: 0.9;">ELECTRONIC BOARDING PASS</div>
+            </div>
+            <div class="bp-type">${bp.fare_class} CLASS</div>
+          </div>
+
+          <div class="bp-body">
+            <div class="bp-row">
+              <div>
+                <div class="bp-label">Passenger Name</div>
+                <div class="bp-val">${bp.first_name} ${bp.last_name}</div>
+              </div>
+              <div style="text-align: right;">
+                <div class="bp-label">Booking Reference (PNR)</div>
+                <div class="bp-val" style="color: #0284c7;">${bp.pnr}</div>
+              </div>
+            </div>
+
+            <div class="bp-route">
+              <div>
+                <div class="bp-val-lg" style="color:#0284c7;">${bp.origin_iata}</div>
+                <div style="font-size:12px; color:#64748b;">${bp.origin_city}</div>
+              </div>
+              <div style="text-align: center;">
+                <div style="font-size: 12px; font-weight:700; color:#64748b;">FLIGHT</div>
+                <div style="font-size: 16px; font-weight:800; color:#0f172a;">${bp.flight_number}</div>
+                <div style="font-size: 11px; color:#94a3b8;">${formatDate(bp.flight_date)}</div>
+              </div>
+              <div style="text-align: right;">
+                <div class="bp-val-lg" style="color:#0284c7;">${bp.dest_iata}</div>
+                <div style="font-size:12px; color:#64748b;">${bp.dest_city}</div>
+              </div>
+            </div>
+
+            <div class="bp-row" style="margin-bottom: 0;">
+              <div>
+                <div class="bp-label">Assigned Gate</div>
+                <div class="bp-val" style="font-size: 18px; color:#0f172a;">${bp.gate_number ? `${bp.terminal_code} - ${bp.gate_number}` : 'Gate 41'}</div>
+              </div>
+              <div>
+                <div class="bp-label">Boarding Group</div>
+                <div class="bp-val" style="font-size: 18px; color:#0284c7;">${bp.boarding_group}</div>
+              </div>
+              <div>
+                <div class="bp-label">Seat Number</div>
+                <div class="bp-val" style="font-size: 22px; color:#059669;">${bp.seat_number}</div>
+              </div>
+              <div style="text-align: right;">
+                <div class="bp-label">Sequence #</div>
+                <div class="bp-val" style="font-size: 18px;">${bp.sequence_number}</div>
+              </div>
+            </div>
+
+            <div class="bp-barcode-sim"></div>
+            <div style="display:flex; justify-content:space-between; font-size:10px; color:#94a3b8; margin-top:6px;">
+              <span>ETKT: ${bp.ticket_number}</span>
+              <span>SECURITY CLEARED &bull; SITA VERIFIED</span>
+            </div>
+          </div>
+        `;
+
+        openModal('boarding-pass-modal');
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    async function cancelBooking(ticketId) {
+      if (!confirm('Are you sure you want to cancel this booking?')) return;
+      try {
+        await apiCall(`/bookings/${ticketId}`, 'DELETE');
+        showSuccess('Booking cancelled.');
+        loadBookings();
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+
+    // Baggage modal helpers
+    function openBaggageModal(ticketId, pnr, flightNo, seat) {
+      document.getElementById('bag-ticket-id').value = ticketId;
+      document.getElementById('bag-pnr-info').textContent = `Booking PNR: ${pnr}`;
+      document.getElementById('bag-flight-info').textContent = `Flight ${flightNo} | Seat ${seat}`;
+      document.getElementById('bag-weight').value = '';
+      calcExcessFee();
+      openModal('baggage-modal');
+    }
+
+    function calcExcessFee() {
+      const weight = parseFloat(document.getElementById('bag-weight').value) || 0;
+      const allowed = parseFloat(document.getElementById('bag-allowed').value) || 15.0;
+      let fee = 0;
+      if (weight > allowed) {
+        fee = (weight - allowed) * 500;
+      }
+      document.getElementById('bag-excess-fee-text').textContent = `Excess Fee: ₹${fee.toFixed(2)}`;
+    }
+
+    document.getElementById('baggage-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      clearError();
+      const ticketId = document.getElementById('bag-ticket-id').value;
+      const weight = document.getElementById('bag-weight').value;
+
+      try {
+        const res = await apiCall('/baggage/checkin', 'POST', {
+          ticket_id: ticketId,
+          weight_kg: weight,
+          allowed_weight_kg: 15.0,
+        });
+
+        closeModal('baggage-modal');
+        showSuccess(`Baggage checked in! Bag Tag: ${res.baggage.bag_tag_number}. Assigned to ${res.baggage.arrival_carousel}.`);
+        setTimeout(() => {
+          window.location.href = `baggage.html?query=${res.baggage.bag_tag_number}`;
+        }, 1500);
+      } catch (err) {
+        showError(err.message);
+      }
+    });
+
+    function openModal(id) {
+      document.getElementById(id).classList.add('active');
+    }
+
+    function closeModal(id) {
+      document.getElementById(id).classList.remove('active');
+    }
+
+    loadBookings();
+  </script>
+</body>
+</html>

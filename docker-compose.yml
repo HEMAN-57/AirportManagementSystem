@@ -1,0 +1,44 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: ams-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: ams_user
+      POSTGRES_PASSWORD: ams_password123
+      POSTGRES_DB: airport_management_system
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/schema.sql:/docker-entrypoint-initdb.d/01-init.sql:ro
+      - ams_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ams_user -d airport_management_system"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: ams-app
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      NODE_ENV: production
+      PORT: 5001
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_USER: ams_user
+      DB_PASSWORD: ams_password123
+      DB_NAME: airport_management_system
+      JWT_SECRET: supersecret_ams_jwt_key_2026
+    ports:
+      - "5001:5001"
+
+volumes:
+  ams_pgdata:
+    driver: local

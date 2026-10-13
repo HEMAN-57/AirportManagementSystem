@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Baggage Logistics Tracker - AMS</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">🧳</div>
+        <div>
+          <h1 class="brand-title">Baggage Logistics Radar</h1>
+          <p class="brand-sub">Real-Time Baggage Handling & Carousel Tracking (SITA Standard)</p>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <a href="dashboard.html" class="nav-btn">🛫 Flight Board</a>
+        <a href="mybookings.html" class="nav-btn">🎟️ My Bookings</a>
+        <a href="baggage.html" class="nav-btn active">🧳 Baggage Tracker</a>
+        <a href="database.html" class="nav-btn">🗄️ Database</a>
+        <button onclick="logout()" class="btn-secondary" style="padding: 7px 12px; font-size: 13px;">Logout</button>
+      </nav>
+    </header>
+
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+    <div id="success-msg" class="success-msg" style="display:none;"></div>
+
+    <!-- Search Card -->
+    <div class="card">
+      <div class="card-title" style="margin-bottom: 12px;">
+        <span>🔍 Search Baggage Telemetry</span>
+      </div>
+      <form id="track-form" style="display: flex; gap: 10px; max-width: 650px;">
+        <input type="text" id="track-input" placeholder="Enter Bag Tag (e.g. BAG-90214) or PNR (e.g. AMS8X1)" required style="margin-bottom:0; text-transform:uppercase;">
+        <button type="submit" id="track-btn">Track Luggage</button>
+      </form>
+      <div style="font-size: 12px; color: var(--text-dim); margin-top: 10px; display: flex; gap: 16px;">
+        <span>Quick Samples:</span>
+        <a href="javascript:void(0)" onclick="quickTrack('BAG-90214')">BAG-90214 (Sorted)</a>
+        <a href="javascript:void(0)" onclick="quickTrack('BAG-77312')">BAG-77312 (Loaded)</a>
+        <a href="javascript:void(0)" onclick="quickTrack('AMS8X1')">PNR AMS8X1</a>
+      </div>
+    </div>
+
+    <!-- Tracking Results Container -->
+    <div id="tracking-results">
+      <!-- Will be populated dynamically -->
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    checkAuth();
+    const user = getUser();
+    const stages = [
+      { id: 'CHECKED_IN', label: 'Checked In' },
+      { id: 'SCREENED', label: 'Screened' },
+      { id: 'SORTED', label: 'Sorted' },
+      { id: 'LOADED_ON_AIRCRAFT', label: 'Loaded' },
+      { id: 'CLAIM_CAROUSEL', label: 'Carousel' },
+      { id: 'DELIVERED', label: 'Delivered' },
+    ];
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const initialQuery = urlParams.get('query');
+    if (initialQuery) {
+      document.getElementById('track-input').value = initialQuery;
+      doTrack(initialQuery);
+    }
+
+    function quickTrack(val) {
+      document.getElementById('track-input').value = val;
+      doTrack(val);
+    }
+
+    document.getElementById('track-form').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const q = document.getElementById('track-input').value.trim();
+      if (q) doTrack(q);
+    });
+
+    async function doTrack(query) {
+      clearError();
+      const container = document.getElementById('tracking-results');
+      container.innerHTML = '<p style="color:var(--text-muted); text-align:center; padding:30px;">Querying luggage telemetry...</p>';
+
+      try {
+        const bags = await apiCall(`/baggage/track/${encodeURIComponent(query)}`);
+        container.innerHTML = '';
+
+        bags.forEach(b => {
+          const card = document.createElement('div');
+          card.className = 'card';
+
+          const currentIdx = stages.findIndex(s => s.id === b.baggage_status);
+
+          let stepperHtml = '<div class="stepper">';
+          stages.forEach((st, i) => {
+            let cls = '';
+            if (i < currentIdx) cls = 'completed';
+            else if (i === currentIdx) cls = 'current';
+
+            stepperHtml += `
+              <div class="step ${cls}">
+                <div class="step-circle">${i < currentIdx ? '✓' : (i + 1)}</div>
+                <div class="step-label">${st.label}</div>
+              </div>
+            `;
+          });
+          stepperHtml += '</div>';
+
+          // Staff control option
+          let staffControls = '';
+          if (user && (user.role === 'staff' || user.role === 'admin')) {
+            staffControls = `
+              <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border-color); display:flex; gap:10px; align-items:center; flex-wrap:wrap;">
+                <span style="font-size: 13px; font-weight:600; color: #34d399;">🛂 Staff Ramp Dispatch:</span>
+                <select id="stage-select-${b.baggage_id}" style="width: auto; margin-bottom: 0; padding: 6px 12px; font-size: 13px;">
+                  ${stages.map(s => `<option value="${s.id}" ${s.id === b.baggage_status ? 'selected' : ''}>${s.label}</option>`).join('')}
+                </select>
+                <input type="text" id="carousel-input-${b.baggage_id}" value="${b.arrival_carousel || 'Carousel 2'}" placeholder="Carousel" style="width: 140px; margin-bottom: 0; padding: 6px 10px; font-size: 13px;">
+                <button class="btn" style="padding: 6px 12px; font-size: 13px;" onclick="updateBaggageStage(${b.baggage_id})">Advance Stage</button>
+              </div>
+            `;
+          }
+
+          card.innerHTML = `
+            <div class="card-header">
+              <div>
+                <span style="font-size: 20px; font-weight: 800; color: #38bdf8;">${b.bag_tag_number}</span>
+                <span class="role-pill role-passenger" style="margin-left: 8px;">PNR: ${b.pnr}</span>
+              </div>
+              <span class="badge badge-confirmed">
+                <span class="badge-dot"></span>
+                Security: ${b.security_scan_result}
+              </span>
+            </div>
+
+            ${stepperHtml}
+
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; font-size: 13px; background: var(--bg-input); padding: 18px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+              <div>
+                <span style="color: var(--text-muted);">Passenger</span>
+                <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">${b.first_name} ${b.last_name}</div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">Flight & Route</span>
+                <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">${b.flight_number} (${b.origin_iata} ➔ ${b.dest_iata})</div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">Baggage Weight</span>
+                <div style="font-weight: 700; font-size: 15px; margin-top: 2px;">${b.weight_kg} kg <span style="font-size:11px; color:var(--text-dim);">(Limit ${b.allowed_weight_kg} kg)</span></div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">Excess Fee</span>
+                <div style="font-weight: 700; font-size: 15px; color: ${b.excess_fee_paid > 0 ? '#fbbf24' : '#34d399'}; margin-top: 2px;">
+                  ₹${parseFloat(b.excess_fee_paid).toFixed(2)}
+                </div>
+              </div>
+              <div>
+                <span style="color: var(--text-muted);">Claim Carousel</span>
+                <div style="font-weight: 800; font-size: 16px; color: #38bdf8; margin-top: 2px;">${b.arrival_carousel || 'Assigned on Landing'}</div>
+              </div>
+            </div>
+
+            ${staffControls}
+          `;
+
+          container.appendChild(card);
+        });
+
+      } catch (err) {
+        showError(err.message);
+        container.innerHTML = `
+          <div class="card" style="text-align: center; padding: 40px;">
+            <div style="font-size: 32px; margin-bottom: 8px;">⚠️</div>
+            <h3>No Baggage Record Found</h3>
+            <p style="color: var(--text-muted); font-size: 14px;">Verify the Bag Tag or PNR entered.</p>
+          </div>
+        `;
+      }
+    }
+
+    async function updateBaggageStage(bagId) {
+      clearError();
+      const newStatus = document.getElementById(`stage-select-${bagId}`).value;
+      const carousel = document.getElementById(`carousel-input-${bagId}`).value;
+
+      try {
+        await apiCall(`/baggage/${bagId}/status`, 'PATCH', {
+          baggage_status: newStatus,
+          arrival_carousel: carousel,
+        });
+
+        showSuccess('Baggage stage updated successfully');
+        const q = document.getElementById('track-input').value.trim();
+        doTrack(q);
+      } catch (err) {
+        showError(err.message);
+      }
+    }
+  </script>
+</body>
+</html>

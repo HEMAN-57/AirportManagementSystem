@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Database Explorer - AMS Relational Inspector</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container">
+    <header class="app-header">
+      <div class="brand-wrapper">
+        <div class="brand-icon">🗄️</div>
+        <div>
+          <h1 class="brand-title">PostgreSQL Database Explorer</h1>
+          <p class="brand-sub">DBMS Relational Architecture, Schema DDL & Live Table Records</p>
+        </div>
+      </div>
+
+      <nav class="nav-links">
+        <a href="dashboard.html" class="nav-btn">🛫 Flight Board</a>
+        <a href="mybookings.html" class="nav-btn">🎟️ My Bookings</a>
+        <a href="baggage.html" class="nav-btn">🧳 Baggage Tracker</a>
+        <a href="database.html" class="nav-btn active">🗄️ Database Inspector</a>
+        <button onclick="logout()" class="btn-secondary" style="padding: 7px 12px; font-size: 13px;">Logout</button>
+      </nav>
+    </header>
+
+    <div id="error-msg" class="error-msg" style="display:none;"></div>
+
+    <!-- Overview Banner -->
+    <div class="card" style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(17, 25, 46, 0.85)); border-color: rgba(16, 185, 129, 0.3);">
+      <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 14px;">
+        <div>
+          <span style="font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: #34d399;">Active DBMS Instance</span>
+          <h2 style="font-size: 24px; margin-top: 4px;">PostgreSQL 16.13 &bull; Database: <code>airport_management_system</code></h2>
+          <p style="font-size: 13px; color: var(--text-muted); margin-top: 4px;">
+            13 Relational Tables &bull; Automated PL/pgSQL Tariff Trigger &bull; ANSI SQL Compliant &bull; Relational Views
+          </p>
+        </div>
+        <div style="display: flex; gap: 10px;">
+          <a href="#triggers-section" class="btn-outline" style="padding: 8px 14px; font-size: 13px;">⚡ View Triggers</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Table Selector Pills -->
+    <div class="card" style="padding: 16px 20px;">
+      <div style="font-size: 13px; font-weight: 600; color: var(--text-muted); margin-bottom: 12px;">SELECT A RELATIONAL TABLE TO INSPECT:</div>
+      <div id="tables-pills" style="display: flex; gap: 8px; flex-wrap: wrap;">
+        <span style="color: var(--text-dim); font-size: 13px;">Loading database tables...</span>
+      </div>
+    </div>
+
+    <!-- Active Table View -->
+    <div class="card" id="table-content-card">
+      <div class="card-header">
+        <div>
+          <div class="card-title">
+            <span id="active-table-name">Table Records</span>
+            <span class="role-pill role-passenger" id="active-table-count">0 Rows</span>
+          </div>
+          <div style="font-size: 12px; color: var(--text-muted); margin-top: 4px;" id="active-table-desc">
+            Direct real-time query against PostgreSQL
+          </div>
+        </div>
+      </div>
+
+      <!-- Column Schema Metadata -->
+      <div style="margin-bottom: 20px;">
+        <h4 style="font-size: 13px; text-transform: uppercase; color: #38bdf8; margin-bottom: 8px;">Table Schema Definition:</h4>
+        <div class="table-responsive">
+          <table style="font-size: 12px;">
+            <thead>
+              <tr>
+                <th>Column Name</th>
+                <th>Data Type</th>
+                <th>Nullable</th>
+                <th>Default Value</th>
+              </tr>
+            </thead>
+            <tbody id="columns-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Live Records Data -->
+      <div>
+        <h4 style="font-size: 13px; text-transform: uppercase; color: #34d399; margin-bottom: 8px;">Live Database Records (SELECT *):</h4>
+        <div class="table-responsive" style="max-height: 420px; overflow-y: auto;">
+          <table style="font-size: 13px;">
+            <thead id="records-table-head"></thead>
+            <tbody id="records-table-body"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- Active Triggers Section -->
+    <div class="card" id="triggers-section" style="margin-top: 24px;">
+      <div class="card-header">
+        <div class="card-title">
+          <span>⚡ Event-Driven Database Triggers (PL/pgSQL)</span>
+        </div>
+      </div>
+      <div style="display: flex; flex-direction: column; gap: 16px;">
+        <div style="background: var(--bg-input); padding: 16px; border-radius: var(--radius-sm); border: 1px solid var(--border-color);">
+          <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 8px;">
+            <strong style="color: #fbbf24; font-size: 15px;">trg_baggage_excess_calc</strong>
+            <span class="role-pill role-staff">BEFORE INSERT OR UPDATE ON baggage</span>
+          </div>
+          <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 10px;">
+            Executes function <code>fn_calculate_baggage_excess_fee()</code>. When luggage weight exceeds the 15.0 kg allowance, the trigger automatically calculates the excess tariff surcharge at ₹500.00 / kg.
+          </p>
+          <pre style="background: rgba(0,0,0,0.5); padding: 12px; border-radius: 4px; font-size: 12px; color: #38bdf8; overflow-x: auto;">
+CREATE OR REPLACE FUNCTION fn_calculate_baggage_excess_fee()
+RETURNS TRIGGER AS $$
+DECLARE
+    excess_kg DECIMAL(5,2);
+    tariff_rate DECIMAL(8,2) := 500.00;
+BEGIN
+    IF NEW.weight_kg > NEW.allowed_weight_kg THEN
+        excess_kg := NEW.weight_kg - NEW.allowed_weight_kg;
+        NEW.excess_fee_paid := excess_kg * tariff_rate;
+    ELSE
+        NEW.excess_fee_paid := 0.00;
+    END IF;
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+  <script>
+    checkAuth();
+    let currentTable = 'flights';
+
+    async function loadTablesList() {
+      try {
+        const tables = await apiCall('/database/tables');
+        const container = document.getElementById('tables-pills');
+        container.innerHTML = '';
+
+        tables.forEach(t => {
+          const btn = document.createElement('button');
+          btn.className = `nav-btn ${t.table_name === currentTable ? 'active' : ''}`;
+          btn.style.fontSize = '12px';
+          btn.style.padding = '6px 12px';
+          btn.innerHTML = `<strong>${t.table_name}</strong> <span style="font-size:10px; opacity:0.8; margin-left:4px;">(${t.row_count})</span>`;
+          btn.onclick = () => {
+            currentTable = t.table_name;
+            document.querySelectorAll('#tables-pills button').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+            loadTableData(t.table_name);
+          };
+          container.appendChild(btn);
+        });
+
+        loadTableData(currentTable);
+      } catch (err) {
+        showError('Failed to load database tables: ' + err.message);
+      }
+    }
+
+    async function loadTableData(tableName) {
+      try {
+        const data = await apiCall(`/database/table/${tableName}`);
+        document.getElementById('active-table-name').textContent = `Table: ${data.table_name.toUpperCase()}`;
+        document.getElementById('active-table-count').textContent = `${data.total_rows} Records in Database`;
+
+        // Render Column Schema
+        const colsBody = document.getElementById('columns-table-body');
+        colsBody.innerHTML = '';
+        data.columns.forEach(col => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td><strong style="color:#38bdf8;">${col.column_name}</strong></td>
+            <td><code>${col.data_type}</code></td>
+            <td>${col.is_nullable === 'YES' ? '<span style="color:var(--text-muted)">NULL</span>' : '<span style="color:#fbbf24;">NOT NULL</span>'}</td>
+            <td style="color:var(--text-dim); font-size:11px;">${col.column_default || 'None'}</td>
+          `;
+          colsBody.appendChild(tr);
+        });
+
+        // Render Records Table
+        const thead = document.getElementById('records-table-head');
+        const tbody = document.getElementById('records-table-body');
+        thead.innerHTML = '';
+        tbody.innerHTML = '';
+
+        if (data.rows.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="10" style="text-align:center; padding:20px; color:var(--text-muted);">No records currently stored in this table.</td></tr>';
+          return;
+        }
+
+        const keys = Object.keys(data.rows[0]);
+        const headerTr = document.createElement('tr');
+        keys.forEach(k => {
+          const th = document.createElement('th');
+          th.textContent = k;
+          headerTr.appendChild(th);
+        });
+        thead.appendChild(headerTr);
+
+        data.rows.forEach(row => {
+          const tr = document.createElement('tr');
+          keys.forEach(k => {
+            const td = document.createElement('td');
+            let val = row[k];
+            if (val === null || val === undefined) {
+              td.innerHTML = '<span style="color:var(--text-dim)">NULL</span>';
+            } else if (typeof val === 'string' && val.includes('T00:00:00')) {
+              td.textContent = val.split('T')[0];
+            } else {
+              td.textContent = val;
+            }
+            tr.appendChild(td);
+          });
+          tbody.appendChild(tr);
+        });
+
+      } catch (err) {
+        showError('Failed to load table details: ' + err.message);
+      }
+    }
+
+    loadTablesList();
+  </script>
+</body>
+</html>
